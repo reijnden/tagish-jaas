@@ -1,18 +1,34 @@
-// $Id: NTSystemLogin.java 2 2008-09-03 19:06:36Z celdredge $
+// $Id: NTSystemLogin.java 6 2008-09-03 19:11:01Z celdredge $
 package com.tagish.auth.win32;
 
-import com.tagish.auth.*;
-import com.tagish.auth.win32.typed.*;
-import java.util.*;
-import java.io.IOException;
 import java.security.Principal;
-import javax.security.auth.*;
-import javax.security.auth.callback.*;
-import javax.security.auth.login.*;
-import javax.security.auth.spi.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Vector;
+
+import javax.security.auth.Subject;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.auth.callback.NameCallback;
+import javax.security.auth.callback.PasswordCallback;
+import javax.security.auth.callback.TextInputCallback;
+import javax.security.auth.callback.UnsupportedCallbackException;
+import javax.security.auth.login.FailedLoginException;
+import javax.security.auth.login.LoginException;
+
+import com.tagish.auth.BasicLogin;
+import com.tagish.auth.Utils;
+import com.tagish.auth.win32.typed.NTDomainPrincipal;
+import com.tagish.auth.win32.typed.NTDomainSIDPrincipal;
+import com.tagish.auth.win32.typed.NTGroupPrincipal;
+import com.tagish.auth.win32.typed.NTGroupSIDPrincipal;
+import com.tagish.auth.win32.typed.NTUserPrincipal;
+import com.tagish.auth.win32.typed.NTUserSIDPrincipal;
 
 /**
- * LoginModule for Windows NT. This module's behaviour depends on the following
+ * LoginModule for Windows NT. This module's behavior depends on the following
  * boolean options that may appear in the configuration file:
  * <table border="0">
  * 	<tr><td>returnNames</td><td>Principals will use NT names</td></tr>
@@ -34,6 +50,7 @@ public class NTSystemLogin extends BasicLogin
 	protected boolean			returnNames		= true;
 	protected boolean			returnSIDs		= true;
 	protected String			defaultDomain	= null;
+	protected boolean			enableDomainTextCallback = true;
 
 	// the authentication status
 	protected boolean			succeeded		= false;
@@ -70,6 +87,7 @@ public class NTSystemLogin extends BasicLogin
 		returnNames		= getOption("returnNames",		returnNames);
 		returnSIDs		= getOption("returnSIDs",		returnSIDs);
 		defaultDomain	= getOption("defaultDomain",	defaultDomain);
+		enableDomainTextCallback = getOption("enableDomainTextCallback", enableDomainTextCallback);
 	}
 
 	/**
@@ -87,7 +105,7 @@ public class NTSystemLogin extends BasicLogin
 		// username and password
 		String	username;
 		char	password[] = null;
-		String	domain;
+		String	domain = defaultDomain;
 
 		try {
 
@@ -95,39 +113,46 @@ public class NTSystemLogin extends BasicLogin
 			if (callbackHandler == null)
 				throw new LoginException("Error: no CallbackHandler available to garner authentication information from the user");
 
-			Callback[] callbacks = new Callback[defaultDomain == null ? 3 : 2];
-			callbacks[0] = new NameCallback("Username: ");
-			callbacks[1] = new PasswordCallback("Password: ", false);
-			if (defaultDomain == null) {
-				callbacks[2] = new TextInputCallback("Domain: ");
+			List<Callback> callbacks = new ArrayList<Callback>();
+			callbacks.add(new NameCallback("Username: "));
+			callbacks.add(new PasswordCallback("Password: ", false));
+			if (enableDomainTextCallback) {
+				callbacks.add(new TextInputCallback("Domain: "));
 			}
 
 			try {
-				callbackHandler.handle(callbacks);
+				callbackHandler.handle(callbacks.toArray(new Callback[callbacks.size()]));
 
 				// Get username...
-				username = ((NameCallback) callbacks[0]).getName();
+				username = ((NameCallback) callbacks.get(0)).getName();
 
 				// ...password...
-				password = ((PasswordCallback) callbacks[1]).getPassword();
-				((PasswordCallback)callbacks[1]).clearPassword();
+				password = ((PasswordCallback) callbacks.get(1)).getPassword();
+				((PasswordCallback)callbacks.get(1)).clearPassword();
 
+				boolean domainSetInUsername = false;
+				
+				if (username.indexOf('\\')>0) {
+					String[] strings = username.split("\\\\");
+					
+					domain = strings[0];
+					username = strings[1];
+					domainSetInUsername = true;
+				}
+				
 				// ...and domain.
-				if (defaultDomain == null) {
-					domain = ((TextInputCallback) callbacks[2]).getText();
-				} else {
-					domain = defaultDomain;
+				if (callbacks.size() == 3 && !domainSetInUsername) {
+					domain = ((TextInputCallback) callbacks.get(2)).getText();
 				}
 
 				if (domain != null && domain.length() == 0) {
 					domain = null;
 				}
-
 			} catch (java.io.IOException ioe) {
-				throw new LoginException(ioe.toString());
+				throw (LoginException)new LoginException(ioe.toString()).initCause(ioe);
 			} catch (UnsupportedCallbackException uce) {
-				throw new LoginException("Error: " + uce.getCallback().toString() +
-				" not available to garner authentication information from the user");
+				throw (LoginException)new LoginException("Error: " + uce.getCallback().toString() +
+				" not available to garner authentication information from the user").initCause(uce);
 			}
 
 			// Attempt to logon using the supplied credentials

@@ -1,6 +1,6 @@
 NTLogin
 {
-	com.tagish.auth.win32.NTSystemLogin required returnNames=true returnSIDs=false;
+	com.tagish.auth.win32.NTSystemLogin required returnNames=true returnSIDs=false defaultDomain=HQ enableDomainTextCallback=false;
 };
 
 FileLogin
