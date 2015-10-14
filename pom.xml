@@ -35,7 +35,7 @@
 						<manifest>
 							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
 							<addClasspath>true</addClasspath>
-							<mainClass>com.tagish.auth.impleLogin</mainClass>
+							<mainClass>com.tagish.auth.SimpleLogin</mainClass>
 							<classpathPrefix>lib/</classpathPrefix>
 						</manifest>
 						<manifestEntries>

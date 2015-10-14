@@ -44,7 +44,7 @@ public class DBLogin extends SimpleLogin
 			   con = DriverManager.getConnection(dbURL);
 
 			psu = con.prepareStatement("SELECT " + passwordColumn + " FROM " + userTable +
-									   " WHERE " + userColumn + " =?" + where);
+									   " WHERE " + userColumn + " = ? " + where);
 
 			psu.setString(1, username);
 			rsu = psu.executeQuery();
