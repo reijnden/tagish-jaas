@@ -25,15 +25,15 @@ public class DBLogin extends SimpleLogin
 	protected String                dbUser;
 	protected String                dbPassword;
 	protected String                userTable;
-	protected String                roleMapTable;
-	protected String                roleTable;
+	protected String                userColumn;
+	protected String                passwordColumn;
 	protected String                where;
 
 	protected synchronized Vector validateUser(String username, char password[]) throws LoginException
 	{
-		ResultSet rsu = null, rsr = null;
+		ResultSet rsu = null;
 		Connection con = null;
-		PreparedStatement psu = null, psr = null;
+		PreparedStatement psu = null;
 
 		try
 		{
@@ -43,31 +43,17 @@ public class DBLogin extends SimpleLogin
 			else
 			   con = DriverManager.getConnection(dbURL);
 
-			psu = con.prepareStatement("SELECT UserID,Password FROM " + userTable +
-									   " WHERE UserName=?" + where);
-			psr = con.prepareStatement("SELECT " + roleTable + ".RoleName FROM " +
-									   roleMapTable + "," + roleTable +
-									   " WHERE " + roleMapTable + ".UserID=? AND " +
-									   roleMapTable + ".RoleID=" + roleTable + ".RoleID");
+			psu = con.prepareStatement("SELECT " + passwordColumn + " FROM " + userTable +
+									   " WHERE " + userColumn + " =?" + where);
 
 			psu.setString(1, username);
 			rsu = psu.executeQuery();
 			if (!rsu.next()) throw new FailedLoginException("Unknown user");
-			int uid = rsu.getInt(1);
-			String upwd = rsu.getString(2);
-			String tpwd = null;
-			try {
-				tpwd = new String(Utils.cryptPassword(password));
-			} catch (Exception e) {
-				throw new LoginException("Error encoding password (" + e.getMessage() + ")");
-			}
-			if (!upwd.equals(tpwd)) throw new FailedLoginException("Bad password");
+			String upwd = rsu.getString(1);
+			if (!upwd.equals(new String(password))) throw new FailedLoginException("Bad password");
 			Vector p = new Vector();
 			p.add(new TypedPrincipal(username, TypedPrincipal.USER));
-			psr.setInt(1, uid);
-			rsr = psr.executeQuery();
-			while (rsr.next())
-				p.add(new TypedPrincipal(rsr.getString(1), TypedPrincipal.GROUP));
+			p.add(new TypedPrincipal("VALID-USER", TypedPrincipal.GROUP));
 			return p;
 		}
 		catch (ClassNotFoundException e)
@@ -82,9 +68,7 @@ public class DBLogin extends SimpleLogin
 		{
 			try {
 				if (rsu != null) rsu.close();
-				if (rsr != null) rsr.close();
 				if (psu != null) psu.close();
-				if (psr != null) psr.close();
 				if (con != null) con.close();
 			} catch (Exception e) { }
 		}
@@ -104,8 +88,8 @@ public class DBLogin extends SimpleLogin
 		   throw new Error("Either provide dbUser and dbPassword or encode both in dbURL");
 
 		userTable    = getOption("userTable",    "User");
-		roleMapTable = getOption("roleMapTable", "RoleMap");
-		roleTable    = getOption("roleTable",    "Role");
+		userColumn = getOption("userColumn", "login");
+		passwordColumn    = getOption("passwordColumn",    "password");
 		where        = getOption("where",        "");
 		if (null != where && where.length() > 0)
 			where = " AND " + where;
