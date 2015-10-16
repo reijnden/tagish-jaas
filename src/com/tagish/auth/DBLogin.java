@@ -52,8 +52,8 @@ public class DBLogin extends SimpleLogin
 			String upwd = rsu.getString(1);
 			if (!upwd.equals(new String(password))) throw new FailedLoginException("Bad password");
 			Vector p = new Vector();
-			p.add(new TypedPrincipal(username, TypedPrincipal.USER));
-			p.add(new TypedPrincipal("VALID-USER", TypedPrincipal.GROUP));
+			//p.add(new TypedPrincipal(username, TypedPrincipal.USER));
+			//p.add(new TypedPrincipal("VALID-USER", TypedPrincipal.GROUP));
 			return p;
 		}
 		catch (ClassNotFoundException e)
